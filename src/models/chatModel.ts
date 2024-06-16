@@ -64,7 +64,7 @@ export const getChatInfo = async (userId: string, chatId: number): Promise<IForm
     }));
 
     return formattedRows[0];
-}
+};
 
 export const createChat = async (firstUserId: string, secondUserId: string): Promise<number> => {
     let chatId: number | null = null;
@@ -87,7 +87,6 @@ export const createChat = async (firstUserId: string, secondUserId: string): Pro
         await connection.commit();
     } catch (error) {
         await connection.rollback();
-        console.error('Transaction failed:', error);
         throw error;
     } finally {
         connection.release();
