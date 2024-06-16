@@ -25,7 +25,8 @@ export const findMyChats = async (userId: string): Promise<IFormattedMyChat[]> =
         INNER JOIN chat_members cm2 ON c.id = cm2.chatId AND cm2.userId <> cm1.userId
         INNER JOIN users u2 ON cm2.userId = u2.id
         WHERE cm1.userId = ?
-        GROUP BY c.id;
+        GROUP BY c.id
+        ORDER BY cm1.joinedAt DESC;
     `, [userId]);
 
     const formattedRows = rows.map(row => ({
@@ -39,15 +40,60 @@ export const findMyChats = async (userId: string): Promise<IFormattedMyChat[]> =
     return formattedRows;
 };
 
-export const createChat = async (firstUserId: string, secondUserId: string): Promise<void> => {
-    await pool.execute(`
-        START TRANSACTION;
-        INSERT INTO chats (name) VALUES (NULL);
-        SET @chatId = LAST_INSERT_ID();
-        INSERT INTO chat_members (chatId, userId) VALUES (@chatId, ?);
-        INSERT INTO chat_members (chatId, userId) VALUES (@chatId, ?);
-        COMMIT;
-    `, [firstUserId, secondUserId]);
+export const getChatInfo = async (userId: string, chatId: number): Promise<IFormattedMyChat> => {
+    const [rows]: [IGetMyChatsFromDB[], FieldPacket[]] = await pool.execute(`
+        SELECT c.id AS id, 
+            c.name AS chatName, 
+            cm1.joinedAt AS joinDate, 
+            u2.id AS otherUserIds,
+            u2.username AS otherUsernames,
+            cm2.joinedAt AS otherUserJoinDates
+        FROM chats c
+        INNER JOIN chat_members cm1 ON c.id = cm1.chatId
+        INNER JOIN users u1 ON cm1.userId = u1.id
+        INNER JOIN chat_members cm2 ON c.id = cm2.chatId AND cm2.userId <> cm1.userId
+        INNER JOIN users u2 ON cm2.userId = u2.id
+        WHERE cm1.userId = ? AND c.id = ?
+    `, [userId, chatId]);
+
+    const formattedRows = rows.map(row => ({
+        ...row,
+        otherUserIds: row.otherUserIds ? [+row.otherUserIds] : [],
+        otherUsernames: row.otherUsernames ? [row.otherUsernames] : [],
+        otherUserJoinDates: row.otherUserJoinDates ? [new Date(row.otherUserJoinDates)] : [],
+    }));
+
+    return formattedRows[0];
+}
+
+export const createChat = async (firstUserId: string, secondUserId: string): Promise<number> => {
+    let chatId: number | null = null;
+    
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+    
+        const [chatInsertResult]: [ResultSetHeader, FieldPacket[]] = await connection.execute(`
+            INSERT INTO chats (name) VALUES (NULL)
+        `);
+        chatId = chatInsertResult.insertId;
+        await connection.execute(`
+            INSERT INTO chat_members (chatId, userId) VALUES (?, ?)
+        `, [chatId, firstUserId]);    
+        await connection.execute(`
+            INSERT INTO chat_members (chatId, userId) VALUES (?, ?)
+        `, [chatId, secondUserId]);
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        console.error('Transaction failed:', error);
+        throw error;
+    } finally {
+        connection.release();
+    }
+
+    return chatId;
 };
 
 export const getMessages = async (chatId: string): Promise<IGetMessageFromDB[]> => {

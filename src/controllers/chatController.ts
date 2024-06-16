@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import { findMyChats, getMessages, createMessage, getMessageInfo, getChatUsers } from '../models/chatModel';
+import { findMyChats, getMessages, createChat, createMessage, getMessageInfo, getChatUsers, getChatInfo } from '../models/chatModel';
 import socketService from '../socket/socket';
 
 export const getMyChats = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -58,3 +58,24 @@ export const addMessage = async (req: AuthRequest, res: Response): Promise<void>
         res.status(400).json({message: 'failed during creating message'});
     }
 };
+
+export const createNewChat = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId;
+
+    const { otherUserId } = req.body;
+
+    if (!otherUserId || !userId) {
+        res.status(400).json({message: 'lack of data'});
+        return;
+    }
+
+    try {
+        const insertedId = await createChat(userId, otherUserId);
+        
+        const newChat = await getChatInfo(userId, insertedId);
+
+        res.json(newChat);
+    } catch (error) {
+        res.status(400).json({message: 'failed during creating chat'});
+    }
+}

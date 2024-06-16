@@ -4,7 +4,7 @@ import { auth } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
-router.get('/search', findUser);
+router.get('/search', auth, findUser);
 router.get('/whoami', auth, getMe);
 
 export default router;
