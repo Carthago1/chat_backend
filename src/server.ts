@@ -20,7 +20,7 @@ app.use(cors({
 }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes, chatRoutes);
+app.use('/api', userRoutes, chatRoutes)
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
