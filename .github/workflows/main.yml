@@ -16,7 +16,7 @@ jobs:
           node-version: '18'
 
       - name: install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: linter
         run: npm run lint
